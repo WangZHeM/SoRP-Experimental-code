@@ -6,6 +6,7 @@ import numpy as np
 import cal_U
 import creatData
 
+
 # initialization
 def init(userd):
     global userbid_, budget, vm, r, userd_temp, userselpoi
@@ -16,6 +17,7 @@ def init(userd):
     budget = sum([vm[i] * r[i] for i in range(len(vm))])
     userd_temp = userd
     userselpoi = [[] for i in range(len(userbid_))]
+
 
 # value function
 def V_s(S: list, j=-1):
@@ -33,12 +35,15 @@ def V_s(S: list, j=-1):
         for m in range(len(vm)):
             value_temp[m] = [vm[m], m]
         value_temp.sort(reverse=True)
+        flg = [0 for s in range(len(vm))]
         for d in range(userd_temp):
-            if const_r[value_temp[d][1]] > 0:
-                values += value_temp[d][0]
-                const_r[value_temp[d][1]] -= 1
-                bidtemp.append(value_temp[d][1])
-                continue
+            for p in range(len(vm)):
+                if const_r[value_temp[p][1]] > 0 and flg[value_temp[p][1]] == 0:
+                    values += value_temp[p][0]
+                    const_r[value_temp[p][1]] -= 1
+                    bidtemp.append(value_temp[p][1])
+                    flg[value_temp[p][1]] = -1
+                    break
         if i == j:
             userbids = bidtemp
     return values, userbids
@@ -48,6 +53,7 @@ def mar_vs(set_s: list, index):
     val1, userindex = V_s(set_s, index)
     val2 = V_s(set_s)[0]
     return val1 - val2, userindex
+
 
 # OMZ
 def OMZ(BudgetB, DeadlineT, userlist):
@@ -99,7 +105,7 @@ def OMZ(BudgetB, DeadlineT, userlist):
 
 def GetDensityThreshold(stage_B, userlist: list):
     copy_S = copy.deepcopy(userlist)
-    delta = 1
+    delta = 1.5
     list_j = []
     max_tmp = 0
     max_i = -1
@@ -149,32 +155,33 @@ def getOMZ(users, userd):
     selpoitemp = [[] for j in range(len(selusers))]
     sumbid = [0 for j in range(len(selusers))]
     sumvm = [0 for j in range(len(selusers))]
-
+    winners = 0
     value_temp = [[] for j in range(len(vm))]
     for m in range(len(vm)):
         value_temp[m] = [vm[m], m]
     value_temp.sort(reverse=True)
     for i in range(len(selusers)):
         vmsum = 0
-        for d in range(userd_temp):
-            if copyr[value_temp[d][1]] > 0:
-                copyr[value_temp[d][1]] -= 1
-                selpoitemp[i].append(value_temp[d][1])
-                sumbid[i] += userbid_[selusers[i]][value_temp[d][1]]
-                vmsum += vm[value_temp[d][1]]
-                continue
-        sumvm[i] = vmsum - payment[selusers[i]]
-
-    for user in range(len(selusers)):
-        user_uti += (payment[selusers[user]] - sumbid[user])
-        sever_uti += sumvm[user]
-        sever_paid += payment[selusers[user]]
-
-    winners = len(selusers)
+        flg = [0 for s in range(len(vm))]
+        for d in range(userd):
+            for p in range(len(vm)):
+                if copyr[value_temp[p][1]] > 0 and flg[value_temp[p][1]] == 0:
+                    copyr[value_temp[p][1]] -= 1
+                    selpoitemp[i].append(value_temp[p][1])
+                    sumbid[i] += userbid_[selusers[i]][value_temp[p][1]]
+                    vmsum += vm[value_temp[p][1]]
+                    flg[value_temp[p][1]] = -1
+                    break
+        sumvm[i] = vmsum
 
     usercr = 0
     for user in range(len(selusers)):
-        usercr += len(selpoitemp[user])
+        if sumbid[user] <= payment[selusers[user]] <= sumvm[user]:
+            user_uti += (payment[selusers[user]] - sumbid[user])
+            sever_uti += sumvm[user] - payment[selusers[user]]
+            sever_paid += payment[selusers[user]]
+            winners += 1
+            usercr += len(selpoitemp[user])
 
     coverrate = usercr / sum(r)
     print("^^^^^^^^^^^^^^^^")
@@ -183,6 +190,11 @@ def getOMZ(users, userd):
     print("the sever payment is", sever_paid)
     print("the total utility is", user_uti + sever_uti)
     print("winners is", selusers)
+    print("winners number is", winners)
     print("cover rate is", coverrate)
 
     return sever_uti, user_uti, sever_paid, sever_uti + user_uti, winners, coverrate
+
+
+# user = creatData.creatuserlist(250, 250)
+# getOMZ(user, 2)
